@@ -86,6 +86,13 @@
       <i class="bi bi-shield-lock"></i>
     </div>
     <h5 class="text-center fw-bold mb-1">系统激活</h5>
+
+    {% if trial_message %}
+    <div class="alert {% if trial_expired %}alert-warning{% else %}alert-info{% endif %} py-2 small" role="alert">
+      <i class="bi bi-clock me-1"></i>{{ trial_message }}
+    </div>
+    {% endif %}
+
     <p class="text-center text-muted small mb-4">请将机器码发送给管理员，获取激活码后输入</p>
 
     {% if error %}
@@ -113,8 +120,9 @@
           <i class="bi bi-key me-1"></i>激活码
         </label>
         <input type="text" class="form-control" id="code" name="code"
-               placeholder="V1-XXXX-XXXXXXXX-XXXXXXXX" required autofocus
+               placeholder="V1-XXXX-XXXXXXXX-XXXXXXXX 或 T1-试用码" required autofocus
                style="font-family: monospace; letter-spacing: 0.05em;">
+        <div class="form-text">V1 开头为永久激活码，T1 开头为试用激活码</div>
       </div>
       <div class="d-grid">
         <button type="submit" class="btn btn-activate">

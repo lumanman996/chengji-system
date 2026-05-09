@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 成绩核算 Web 应用。上传登分表 Excel → 自动计算班级排名、教师评比 → 导出四张标准报表。
 
+**GitHub：** https://github.com/lumanman996/chengji-system
+**依赖：** Flask 3.1.3、Pandas 3.0.2、openpyxl 3.1.5
+
 ## 常用命令
 
 ```bash
@@ -18,7 +21,14 @@ pip install -r requirements.txt        # flask, pandas, openpyxl
 # 打包为 exe（需先关闭正在运行的 exe）
 打包.bat                               # 一键打包，输出 dist\成绩核算系统\
 python -m PyInstaller chengji.spec --noconfirm
+python -m PyInstaller admin_genkey.spec --noconfirm  # 打包管理员工具
 ```
+
+## 环境变量
+
+PyInstaller 打包后，系统自动设置以下环境变量供其他模块使用：
+- `CHENGJI_APP_DIR` — 可写数据目录（config/uploads），exe 同级目录
+- `CHENGJI_BUNDLE_DIR` — 资源目录（templates/static），临时解压目录
 
 ## 架构
 
@@ -35,6 +45,8 @@ python -m PyInstaller chengji.spec --noconfirm
 - `presets.py` — 内置年级（七/八/九年级）预设和科目默认分数线
 
 **前端：** Bootstrap 5 + Bootstrap Icons，模板在 `templates/`，样式在 `static/main.css`。夏日清凉风主题（海洋青 #0891b2 / 薄荷绿 #2dd4bf）。
+
+**打包路径处理：** `app.py` 开头根据 `sys.frozen` 区分开发/打包模式，设置 `CHENGJI_APP_DIR`（可写数据）和 `CHENGJI_BUNDLE_DIR`（只读资源）环境变量，其他模块通过 `os.environ.get("CHENGJI_APP_DIR", ".")` 读取配置目录。
 
 ## 算法概要
 
@@ -69,16 +81,20 @@ python -m PyInstaller chengji.spec --noconfirm
 
 ## 激活码系统
 
-**机制：** 机器绑定 + HMAC-SHA256 离线验证。
+**机制：** 机器绑定 + HMAC-SHA256 离线验证，支持永久激活和限时试用。
 
 **核心文件：**
-- `activation.py` — 激活验证模块（机器指纹、HMAC 验证、激活状态管理）
+- `activation.py` — 激活验证模块（机器指纹、HMAC 验证、激活状态、试用管理）
 - `templates/activation.html` — 激活页面（夏日清凉风主题）
 - `admin_genkey.py` — 管理员工具（生成激活码），不随 exe 分发
 
 **打包输出：**
 - `dist\成绩核算系统\成绩核算系统.exe` — 主程序（含激活检查）
 - `dist\激活码生成工具.exe` — 管理员工具（单独保管）
+
+**激活码类型：**
+- `V1-学校代码-机器码前8位-HMAC前8位` — 永久激活码
+- `T1-学校代码-机器码前8位-HMAC前8位` — 试用激活码（3天）
 
 **激活流程：**
 1. 客户启动 `成绩核算系统.exe`，显示激活页面 + 机器码
@@ -89,9 +105,10 @@ python -m PyInstaller chengji.spec --noconfirm
 
 **技术细节：**
 - 机器码基于 CPU/主板/硬盘序列号生成 SHA-256 哈希（前 32 位）
-- 激活码格式：`V1-学校代码-机器码前8位-HMAC前8位`
 - 激活状态保存在 `config/activation.json`（隐藏文件）
+- 试用时间保存在注册表 `HKCU\Software\ChengjiSystem` 和 `config/trial.dat`（双重存储防篡改）
 - 密钥使用 XOR 混淆存储，运行时异或还原
+- 首次运行自动进入 3 天试用期，无需激活码
 
 **打包命令：**
 ```bash
@@ -100,4 +117,12 @@ python -m PyInstaller chengji.spec --noconfirm
 
 # 打包管理员工具
 python -m PyInstaller admin_genkey.spec --noconfirm
+
+# 制作安装程序（需要 Inno Setup）
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 ```
+
+**安装程序：**
+- 使用 Inno Setup 制作，中文界面
+- 输出：`installer_output\成绩核算系统_v2.0_安装包.exe`（29MB）
+- 支持桌面快捷方式、开始菜单、完整卸载

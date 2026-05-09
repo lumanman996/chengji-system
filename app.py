@@ -797,22 +797,44 @@ if __name__ == "__main__":
     # ── 激活检查路由 ──
     @app.route("/activate", methods=["GET", "POST"])
     def activate_page():
+        from activation import check_trial
         mid = get_machine_id() or "无法获取机器码"
+
+        # 获取试用状态
+        trial_valid, trial_remaining, trial_message = check_trial()
+        trial_expired = not trial_valid and trial_remaining == 0
+
         if request.method == "POST":
             code = request.form.get("code", "").strip()
             result = try_activate(code)
             if result["success"]:
+                if result.get("is_trial"):
+                    msg = "试用激活成功！请重新启动程序。"
+                else:
+                    msg = "激活成功！请重新启动程序。"
                 return render_template_string(
-                    "<script>alert('激活成功！请重新启动程序。');window.close();</script>"
+                    f"<script>alert('{msg}');window.close();</script>"
                 )
-            return render_template("activation.html", machine_id=mid, error=result["error"])
-        return render_template("activation.html", machine_id=mid, error=None)
+            return render_template("activation.html", machine_id=mid, error=result["error"],
+                                 trial_message=trial_message, trial_expired=trial_expired)
+        return render_template("activation.html", machine_id=mid, error=None,
+                             trial_message=trial_message, trial_expired=trial_expired)
 
     # ── 未激活时拦截所有请求 ──
     @app.before_request
     def _check_activation():
         if request.path not in ("/activate", "/static/icon.png") and not request.path.startswith("/static/"):
-            if not check_activation():
+            status, message = check_activation()
+            if status == "activated":
+                return  # 永久激活，正常访问
+            elif status == "trial":
+                # 试用中，设置提示信息
+                if not hasattr(app, '_trial_warned'):
+                    app._trial_warned = True
+                    # 可以在页面上显示剩余天数
+                return
+            else:
+                # 过期或无效，跳转激活页面
                 return redirect(url_for("activate_page"))
 
     if is_frozen:

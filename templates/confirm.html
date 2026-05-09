@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block title %}确认配置{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="progress-sidebar">
+        <h6 class="progress-title"><i class="bi bi-list-check me-1"></i>操作进度</h6>
+        <ul class="progress-list" id="progressList">
+          <li class="progress-step done" id="step-upload">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>上传文件</span>
+          </li>
+          <li class="progress-step active" id="step-confirm">
+            <i class="bi bi-circle"></i>
+            <span>确认配置</span>
+          </li>
+          <li class="progress-step" id="step-calc">
+            <i class="bi bi-circle"></i>
+            <span>计算完成</span>
+          </li>
+          <li class="progress-step" id="step-download">
+            <i class="bi bi-circle"></i>
+            <span>下载报表</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">确认配置</h4>
+        <span class="badge bg-primary fs-6">{{ grade or '未识别' }}</span>
+      </div>
+
+      {% if detection %}
+      <div class="alert alert-info py-2">
+        自动检测到 <strong>{{ detection.detected_subjects|length }}</strong> 个科目，
+        <strong>{{ detection.class_names|length }}</strong> 个班级，
+        共 <strong>{{ detection.n_students_per_class.values()|sum }}</strong> 名学生
+      </div>
+      {% endif %}
+
+      <form action="{{ url_for('process') }}" method="post">
+        <input type="hidden" name="grade" value="{{ grade }}">
+
+        <!-- 1. 考试信息 -->
+        <div class="card mb-3">
+          <div class="card-header py-2">
+            <strong>考试信息</strong>
+          </div>
+          <div class="card-body py-2">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small">考试名称</label>
+                <input type="text" name="exam_title" class="form-control form-control-sm"
+                       value="{{ detection.exam_title_hint or '期末考试' }}">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">学期</label>
+                <input type="text" name="semester" class="form-control form-control-sm"
+                       placeholder="如：2025秋季学期">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small">考试日期</label>
+                <input type="text" name="exam_date" class="form-control form-control-sm"
+                       value="{{ detection.exam_date_hint or '' }}">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 科目配置（从Excel自动检测） -->
+        <div class="card mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" data-bs-target="#subjectSection" role="button">
+            <strong>科目配置</strong>
+            <small class="text-muted">从Excel自动检测到 {{ subjects|length }} 科 · 点击展开/收起</small>
+          </div>
+          <div class="collapse show" id="subjectSection">
+            <div class="card-body py-2">
+              <p class="text-muted small mb-2">
+                科目从上传的Excel表头自动抓取。如有新增科目，请确认满分和分数线是否正确。
+              </p>
+              <table class="table table-sm table-bordered mb-0">
+                <thead>
+                  <tr>
+                    <th>科目</th>
+                    <th>满分</th>
+                    <th>及格线</th>
+                    <th>优秀线</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for s in subjects %}
+                  <tr>
+                    <td><input type="text" name="subj_name[]" class="form-control form-control-sm" value="{{ s.name }}"></td>
+                    <td><input type="number" name="subj_full[]" class="form-control form-control-sm" value="{{ s.full_score }}"></td>
+                    <td><input type="number" name="subj_pass[]" class="form-control form-control-sm" value="{{ s.pass_score }}"></td>
+                    <td><input type="number" name="subj_exc[]" class="form-control form-control-sm" value="{{ s.exc_score }}"></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 应考人数 -->
+        <div class="card mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" data-bs-target="#classSection" role="button">
+            <strong>应考人数</strong>
+            <small class="text-muted">
+              {% if class_info and class_info[0].n_actual %}已加载保存数据{% else %}请填写各班应考人数{% endif %}
+              · 点击展开
+            </small>
+          </div>
+          <div class="collapse show" id="classSection">
+            <div class="card-body py-2">
+              <p class="text-muted small mb-2">
+                实考人数由系统自动统计（Excel 中有成绩的学生数），应考人数需手动填写（班级注册总人数）。
+                参考率 = 实考人数 / 应考人数。
+              </p>
+              <table class="table table-sm table-bordered mb-0">
+                <thead>
+                  <tr>
+                    <th>班级</th>
+                    <th>实考人数（自动统计）</th>
+                    <th>应考人数（手动填写）</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for c in class_info %}
+                  <tr>
+                    <td>
+                      <input type="text" name="cls_name[]" class="form-control form-control-sm" value="{{ c.name }}" readonly>
+                    </td>
+                    <td>
+                      <input type="number" class="form-control form-control-sm bg-light" value="{{ c.n_attended }}" readonly>
+                    </td>
+                    <td>
+                      <input type="number" name="cls_n_actual[]" class="form-control form-control-sm"
+                             value="{{ c.n_actual }}" placeholder="请填写">
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 进线阈值 -->
+        <div class="card mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" data-bs-target="#advanceSection" role="button">
+            <strong>进线阈值</strong>
+            <small class="text-muted">默认全年级人数×75%</small>
+          </div>
+          <div class="collapse" id="advanceSection">
+            <div class="card-body py-2">
+              <div class="row">
+                <div class="col-md-4">
+                  <input type="number" name="advance_threshold" class="form-control form-control-sm"
+                         placeholder="留空则自动计算（总人数×75%）">
+                </div>
+                <div class="col-md-8">
+                  <small class="text-muted">当前总人数约 {{ detection.n_students_per_class.values()|sum }}，
+                    默认阈值约 {{ ((detection.n_students_per_class.values()|sum) * 0.75)|round|int }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. 上次排名 -->
+        <div class="card mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" data-bs-target="#rankSection" role="button">
+            <strong>上次二率一分排名</strong>
+            <small class="text-muted">
+              {% if prev_rankings %}已加载保存数据{% else %}无保存数据（增值分为0）{% endif %}
+            </small>
+          </div>
+          <div class="collapse" id="rankSection">
+            <div class="card-body py-2">
+              <div class="row g-2">
+                {% for cn in class_names %}
+                <div class="col-md-4 col-lg-3">
+                  <div class="input-group input-group-sm">
+                    <input type="text" name="prev_cls[]" class="form-control" value="{{ cn }}" readonly>
+                    <input type="number" name="prev_rank[]" class="form-control"
+                           value="{{ prev_rankings.get(cn, '') }}" placeholder="排名">
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. 教师任课 -->
+        <div class="card mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center"
+               data-bs-toggle="collapse" data-bs-target="#teacherSection" role="button">
+            <strong>教师任课</strong>
+            <small class="text-muted">
+              {% if teachers %}已加载 {{ teachers|length }} 条记录{% else %}未配置（跳过教师评比）{% endif %}
+            </small>
+          </div>
+          <div class="collapse {{ 'show' if not teachers else '' }}" id="teacherSection">
+            <div class="card-body py-2">
+              <table class="table table-sm table-bordered mb-2">
+                <thead>
+                  <tr>
+                    <th>教师</th>
+                    <th>科目</th>
+                    <th>所带班级</th>
+                    <th width="40"></th>
+                  </tr>
+                </thead>
+                <tbody id="teacherBody">
+                  {% for t in teachers %}
+                  <tr>
+                    <td><input type="text" name="teacher_name[]" class="form-control form-control-sm" value="{{ t.teacher }}"></td>
+                    <td><input type="text" name="teacher_subject[]" class="form-control form-control-sm" value="{{ t.subject }}" list="subjectOptions" autocomplete="off"></td>
+                    <td>
+                      <div class="input-group input-group-sm">
+                        <input type="text" name="teacher_classes[]" class="form-control form-control-sm class-input" value="{{ t.classes|join(', ') }}" placeholder="点击右侧按钮选择">
+                        <button type="button" class="btn btn-outline-secondary btn-sm class-pick-btn" title="选择班级"><i class="bi bi-list-check"></i></button>
+                      </div>
+                    </td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger del-row">×</button></td>
+                  </tr>
+                  {% endfor %}
+                  {% if not teachers %}
+                  <tr>
+                    <td><input type="text" name="teacher_name[]" class="form-control form-control-sm" placeholder="姓名"></td>
+                    <td><input type="text" name="teacher_subject[]" class="form-control form-control-sm" placeholder="科目" list="subjectOptions" autocomplete="off"></td>
+                    <td>
+                      <div class="input-group input-group-sm">
+                        <input type="text" name="teacher_classes[]" class="form-control form-control-sm class-input" placeholder="点击右侧按钮选择">
+                        <button type="button" class="btn btn-outline-secondary btn-sm class-pick-btn" title="选择班级"><i class="bi bi-list-check"></i></button>
+                      </div>
+                    </td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger del-row">×</button></td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="addTeacher">+ 添加教师</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="clearTeachers"><i class="bi bi-trash me-1"></i>一键清空</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 保存选项 -->
+        <div class="card mb-3">
+          <div class="card-body py-2">
+            <div class="form-check form-check-inline">
+              <input type="checkbox" name="save_config" value="1" class="form-check-input" id="chkSaveConfig" checked>
+              <label class="form-check-label" for="chkSaveConfig">保存本次教师任课和应考人数配置</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input type="checkbox" name="save_rankings" value="1" class="form-check-input" id="chkSaveRank" checked>
+              <label class="form-check-label" for="chkSaveRank">保存本次排名供下次增值计算</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 提交 -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+          <a href="{{ url_for('index') }}" class="btn btn-outline-secondary px-4">返回上传</a>
+          <button type="submit" class="btn btn-primary btn-lg px-5">开始计算</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- 科目 datalist -->
+<datalist id="subjectOptions">
+  <option value="语文"><option value="数学"><option value="英语">
+  <option value="物理"><option value="化学"><option value="生物">
+  <option value="地理"><option value="历史"><option value="道法">
+  <option value="体育"><option value="音乐"><option value="美术">
+  <option value="信息">
+</datalist>
+
+<!-- 班级选择浮层模板 -->
+<div id="classPickerPopover" class="class-picker-popover" style="display:none;">
+  <div class="class-picker-title">选择班级</div>
+  <div class="class-picker-list">
+    {% for cn in class_names %}
+    <label class="class-picker-item"><input type="checkbox" value="{{ cn }}"> {{ cn }}</label>
+    {% endfor %}
+  </div>
+  <div class="class-picker-actions">
+    <button type="button" class="btn btn-sm btn-outline-secondary class-picker-cancel">取消</button>
+    <button type="button" class="btn btn-sm btn-primary class-picker-ok">确定</button>
+  </div>
+</div>
+
+<script>
+// 班级名列表（供 JS 使用）
+var CLASS_NAMES = {{ class_names|tojson }};
+
+// 添加教师行（通用函数）
+function addTeacherRow(tbody) {
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="text" name="teacher_name[]" class="form-control form-control-sm" placeholder="姓名"></td>'
+    + '<td><input type="text" name="teacher_subject[]" class="form-control form-control-sm" placeholder="科目" list="subjectOptions" autocomplete="off"></td>'
+    + '<td><div class="input-group input-group-sm"><input type="text" name="teacher_classes[]" class="form-control form-control-sm class-input" placeholder="点击右侧按钮选择"><button type="button" class="btn btn-outline-secondary btn-sm class-pick-btn" title="选择班级"><i class="bi bi-list-check"></i></button></div></td>'
+    + '<td><button type="button" class="btn btn-sm btn-outline-danger del-row">×</button></td>';
+  tbody.appendChild(tr);
+}
+
+// 添加教师
+document.getElementById('addTeacher').addEventListener('click', function() {
+  addTeacherRow(document.getElementById('teacherBody'));
+});
+
+// 一键清空教师（两次确认）
+document.getElementById('clearTeachers').addEventListener('click', function() {
+  if (!confirm('⚠️ 警告：即将删除当前年级的所有教师任课信息！\n\n此操作不可撤销，确定继续？')) return;
+  if (!confirm('最后确认：真的要删除全部教师信息吗？\n\n点击"确定"将立即清空。')) return;
+  var tbody = document.getElementById('teacherBody');
+  tbody.innerHTML = '';
+  addTeacherRow(tbody);
+});
+
+// 删除教师行
+document.getElementById('teacherBody').addEventListener('click', function(e) {
+  if (e.target.classList.contains('del-row')) {
+    if (this.rows.length > 1) {
+      e.target.closest('tr').remove();
+    }
+  }
+});
+
+// 班级选择器
+var activeClassInput = null;
+var popover = document.getElementById('classPickerPopover');
+
+document.addEventListener('click', function(e) {
+  // 点击选择班级按钮
+  if (e.target.closest('.class-pick-btn')) {
+    var btn = e.target.closest('.class-pick-btn');
+    var td = btn.closest('td');
+    activeClassInput = td.querySelector('.class-input');
+    // 解析当前已选班级
+    var current = activeClassInput.value.split(/[,，]/).map(function(s){ return s.trim(); }).filter(Boolean);
+    popover.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = current.indexOf(cb.value) >= 0;
+    });
+    // 定位
+    var rect = btn.getBoundingClientRect();
+    popover.style.display = 'block';
+    popover.style.position = 'fixed';
+    popover.style.top = (rect.bottom + 4) + 'px';
+    popover.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
+    e.stopPropagation();
+    return;
+  }
+  // 点击确定
+  if (e.target.closest('.class-picker-ok')) {
+    var checked = [];
+    popover.querySelectorAll('input[type="checkbox"]:checked').forEach(function(cb) {
+      checked.push(cb.value);
+    });
+    if (activeClassInput) activeClassInput.value = checked.join(', ');
+    popover.style.display = 'none';
+    activeClassInput = null;
+    return;
+  }
+  // 点击取消
+  if (e.target.closest('.class-picker-cancel')) {
+    popover.style.display = 'none';
+    activeClassInput = null;
+    return;
+  }
+  // 点击外部关闭
+  if (!e.target.closest('#classPickerPopover') && !e.target.closest('.class-pick-btn')) {
+    popover.style.display = 'none';
+  }
+});
+</script>
+{% endblock %}

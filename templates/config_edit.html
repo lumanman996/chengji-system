@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% block title %}配置管理{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+
+      <h4 class="mb-3" style="color: var(--primary-dark);">配置管理</h4>
+
+      <!-- 年级切换 -->
+      <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <ul class="nav nav-pills mb-0">
+          {% for g in grades %}
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if g == grade else '' }}"
+               href="{{ url_for('config_page', grade=g) }}">{{ g }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addGradeModal">
+          <i class="bi bi-plus-circle me-1"></i>添加年级
+        </button>
+        {% if not is_builtin %}
+        <form action="{{ url_for('grade_delete') }}" method="post" class="d-inline"
+              onsubmit="return confirm('确定删除「{{ grade }}」？相关配置将一并清除。')">
+          <input type="hidden" name="grade_name" value="{{ grade }}">
+          <button type="submit" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-trash me-1"></i>删除「{{ grade }}」
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+      <form action="{{ url_for('config_save') }}" method="post">
+        <input type="hidden" name="grade" value="{{ grade }}">
+
+        <!-- 教师任课 -->
+        <div class="card mb-3">
+          <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <strong>教师任课 — {{ grade }}</strong>
+            <div class="d-flex gap-2">
+              <a href="{{ url_for('teacher_template') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-download me-1"></i>下载模板
+              </a>
+              <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="bi bi-upload me-1"></i>导入Excel
+              </button>
+            </div>
+          </div>
+          <div class="card-body py-2">
+            <table class="table table-sm table-bordered mb-2">
+              <thead>
+                <tr>
+                  <th>教师姓名</th>
+                  <th>科目</th>
+                  <th>所带班级</th>
+                  <th width="40"></th>
+                </tr>
+              </thead>
+              <tbody id="teacherBody">
+                {% for t in teachers %}
+                <tr>
+                  <td><input type="text" name="teacher_name[]" class="form-control form-control-sm" value="{{ t.teacher }}"></td>
+                  <td><input type="text" name="teacher_subject[]" class="form-control form-control-sm" value="{{ t.subject }}" list="subjectOptions" autocomplete="off"></td>
+                  <td>
+                    <div class="input-group input-group-sm">
+                      <input type="text" name="teacher_classes[]" class="form-control form-control-sm class-input" value="{{ t.classes|join(', ') }}" placeholder="点击右侧按钮选择">
+                      <button type="button" class="btn btn-outline-secondary btn-sm class-pick-btn" title="选择班级"><i class="bi bi-list-check"></i></button>
+                    </div>
+                  </td>
+                  <td><button type="button" class="btn btn-sm btn-outline-danger del-row">×</button></td>
+                </tr>
+                {% endfor %}
+                {% if not teachers %}
+                <tr>
+                  <td><input type="text" name="teacher_name[]" class="form-control form-control-sm" placeholder="姓名"></td>
+                  <td><input type="text" name="teacher_subject[]" class="form-control form-control-sm" placeholder="科目" list="subjectOptions" autocomplete="off"></td>
+                  <td>
+                    <div class="input-group input-group-sm">
+                      <input type="text" name="teacher_classes[]" class="form-control form-control-sm class-input" placeholder="点击右侧按钮选择">
+                      <button type="button" class="btn btn-outline-secondary btn-sm class-pick-btn" title="选择班级"><i class="bi bi-list-check"></i></button>
+                    </div>
+                  </td>
+                  <td><button type="button" class="btn btn-sm btn-outline-danger del-row">×</button></td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="addTeacher">+ 添加教师</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="clearTeachers"><i class="bi bi-trash me-1"></i>一键清空</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 班级管理 -->
+        <div class="card mb-3">
+          <div class="card-header py-2">
+            <strong>班级管理 — {{ grade }}</strong>
+          </div>
+          <div class="card-body py-2">
+            <table class="table table-sm table-bordered mb-2">
+              <thead>
+                <tr>
+                  <th>班级名称</th>
+                  <th width="120">应考人数</th>
+                  <th width="40"></th>
+                </tr>
+              </thead>
+              <tbody id="classBody">
+                {% if counts %}
+                  {% for cn, n in counts.items() %}
+                  <tr>
+                    <td><input type="text" name="cls_name[]" class="form-control form-control-sm" value="{{ cn }}"></td>
+                    <td><input type="number" name="cls_n_actual[]" class="form-control form-control-sm" value="{{ n }}" placeholder="留空自动统计"></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger del-class">×</button></td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  {% if preset %}
+                    {% for i in range(1, preset.n_active_subjects + 1) %}
+                    <tr>
+                      <td><input type="text" name="cls_name[]" class="form-control form-control-sm" value="{{ preset.class_pattern.format(n=i) }}"></td>
+                      <td><input type="number" name="cls_n_actual[]" class="form-control form-control-sm" placeholder="留空自动统计"></td>
+                      <td><button type="button" class="btn btn-sm btn-outline-danger del-class">×</button></td>
+                    </tr>
+                    {% endfor %}
+                  {% endif %}
+                {% endif %}
+              </tbody>
+            </table>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="addClass">+ 添加班级</button>
+              {% if preset %}
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="resetClasses" title="恢复默认班级列表">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>恢复默认
+              </button>
+              {% endif %}
+            </div>
+            <small class="text-muted mt-2 d-block">应考人数留空则使用 Excel 中实际统计人数</small>
+          </div>
+        </div>
+
+        <!-- 上次排名 -->
+        <div class="card mb-3">
+          <div class="card-header py-2">
+            <strong>上次二率一分排名</strong>
+          </div>
+          <div class="card-body py-2">
+            {% if rankings %}
+            <div class="row g-2">
+              {% for cn, rank in rankings.items() %}
+              <div class="col-md-4 col-lg-3">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">{{ cn }}</span>
+                  <input type="text" class="form-control" value="第{{ rank }}名" disabled>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <small class="text-muted mt-2 d-block">排名数据由计算结果自动保存，无需手动修改</small>
+            {% else %}
+            <p class="text-muted mb-0">暂无保存的排名数据。完成一次计算并勾选"保存排名"后自动生成。</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+          <a href="{{ url_for('index') }}" class="btn btn-outline-secondary px-4">返回首页</a>
+          <button type="submit" class="btn btn-primary px-4">保存配置</button>
+        </div>
+
+      </form>
+
+      <!-- 添加年级弹窗 -->
+      <div class="modal fade" id="addGradeModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form action="{{ url_for('grade_add') }}" method="post">
+              <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>添加新年级</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label class="form-label">年级名称</label>
+                  <input type="text" name="grade_name" class="form-control" placeholder="如：十年级、预科班" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">班级名称格式</label>
+                  <input type="text" name="class_pattern" class="form-control" placeholder="如：十年级（{n}）">
+                  <small class="text-muted">{n} 会被替换为班级序号 1, 2, 3...</small>
+                </div>
+                <p class="text-muted small">
+                  <i class="bi bi-info-circle me-1"></i>添加后默认包含语文、数学、英语三科，可在配置页补充其他科目信息。
+                </p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>添加</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- 教师导入弹窗 -->
+      <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form action="{{ url_for('teacher_import') }}" method="post" enctype="multipart/form-data">
+              <input type="hidden" name="grade" value="{{ grade }}">
+              <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>导入教师任课</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <p class="text-muted small mb-3">
+                  上传包含教师任课信息的 Excel 文件。文件需包含三列：<strong>教师姓名</strong>、<strong>科目</strong>、<strong>所带班级</strong>（多个班级用逗号分隔）。
+                </p>
+                <p class="text-muted small mb-3">
+                  <i class="bi bi-exclamation-triangle text-warning me-1"></i>导入将覆盖当前「{{ grade }}」的教师任课配置。
+                </p>
+                <div class="mb-3">
+                  <input type="file" name="teacher_file" class="form-control" accept=".xlsx,.xls" required>
+                </div>
+                <a href="{{ url_for('teacher_template') }}" class="small text-decoration-none">
+                  <i class="bi bi-download me-1"></i>没有模板？点此下载
+                </a>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>导入</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- 科目 datalist -->
+<datalist id="subjectOptions">
+  <option value="语文"><option value="数学"><option value="英语">
+  <option value="物理"><option value="化学"><option value="生物">
+  <option value="地理"><option value="历史"><option value="道法">
+  <option value="体育"><option value="音乐"><option value="美术">
+  <option value="信息">
+</datalist>
+
+<!-- 班级选择浮层模板 -->
+<div id="classPickerPopover" class="class-picker-popover" style="display:none;">
+  <div class="class-picker-title">选择班级</div>
+  <div class="class-picker-list">
+    {% for cn in class_names %}
+    <label class="class-picker-item"><input type="checkbox" value="{{ cn }}"> {{ cn }}</label>
+    {% endfor %}
+  </div>
+  <div class="class-picker-actions">
+    <button type="button" class="btn btn-sm btn-outline-secondary class-picker-cancel">取消</button>
+    <button type="button" class="btn btn-sm btn-primary class-picker-ok">确定</button>
+  </div>
+</div>
+
+<script>
+// 班级名列表（供 JS 使用）
+var CLASS_NAMES = {{ class_names|tojson }};
+
+// 添加教师行（通用函数）
+function addTeacherRow(tbody) {
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="text" name="teacher_name[]" class="form-control form-control-sm" placeholder="姓名"></td>'
+    + '<td><input type="text" name="teacher_subject[]" class="form-control form-control-sm" placeholder="科目" list="subjectOptions" autocomplete="off"></td>'
+    + '<td><div class="input-group input-group-sm"><input type="text" name="teacher_classes[]" class="form-control form-control-sm class-input" placeholder="点击右侧按钮选择"><button type="button" class="btn btn-outline-secondary btn-sm class-pick-btn" title="选择班级"><i class="bi bi-list-check"></i></button></div></td>'
+    + '<td><button type="button" class="btn btn-sm btn-outline-danger del-row">×</button></td>';
+  tbody.appendChild(tr);
+}
+
+// 添加教师
+document.getElementById('addTeacher').addEventListener('click', function() {
+  addTeacherRow(document.getElementById('teacherBody'));
+});
+
+// 一键清空教师（两次确认）
+document.getElementById('clearTeachers').addEventListener('click', function() {
+  if (!confirm('⚠️ 警告：即将删除当前年级的所有教师任课信息！\n\n此操作不可撤销，确定继续？')) return;
+  if (!confirm('最后确认：真的要删除全部教师信息吗？\n\n点击"确定"将立即清空。')) return;
+  var tbody = document.getElementById('teacherBody');
+  tbody.innerHTML = '';
+  addTeacherRow(tbody);
+});
+
+// 删除教师行
+document.getElementById('teacherBody').addEventListener('click', function(e) {
+  if (e.target.classList.contains('del-row')) {
+    if (this.rows.length > 1) {
+      e.target.closest('tr').remove();
+    }
+  }
+});
+
+// 班级选择器
+var activeClassInput = null;
+var popover = document.getElementById('classPickerPopover');
+
+document.addEventListener('click', function(e) {
+  // 点击选择班级按钮
+  if (e.target.closest('.class-pick-btn')) {
+    var btn = e.target.closest('.class-pick-btn');
+    var td = btn.closest('td');
+    activeClassInput = td.querySelector('.class-input');
+    // 解析当前已选班级
+    var current = activeClassInput.value.split(/[,，]/).map(function(s){ return s.trim(); }).filter(Boolean);
+    popover.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+      cb.checked = current.indexOf(cb.value) >= 0;
+    });
+    // 定位
+    var rect = btn.getBoundingClientRect();
+    popover.style.display = 'block';
+    popover.style.position = 'fixed';
+    popover.style.top = (rect.bottom + 4) + 'px';
+    popover.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
+    e.stopPropagation();
+    return;
+  }
+  // 点击确定
+  if (e.target.closest('.class-picker-ok')) {
+    var checked = [];
+    popover.querySelectorAll('input[type="checkbox"]:checked').forEach(function(cb) {
+      checked.push(cb.value);
+    });
+    if (activeClassInput) activeClassInput.value = checked.join(', ');
+    popover.style.display = 'none';
+    activeClassInput = null;
+    return;
+  }
+  // 点击取消
+  if (e.target.closest('.class-picker-cancel')) {
+    popover.style.display = 'none';
+    activeClassInput = null;
+    return;
+  }
+  // 点击外部关闭
+  if (!e.target.closest('#classPickerPopover') && !e.target.closest('.class-pick-btn')) {
+    popover.style.display = 'none';
+  }
+});
+
+// 班级管理
+document.getElementById('addClass').addEventListener('click', function() {
+  const tbody = document.getElementById('classBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" name="cls_name[]" class="form-control form-control-sm" placeholder="如：{{ grade[0] if grade else '' }}（1）"></td>
+    <td><input type="number" name="cls_n_actual[]" class="form-control form-control-sm" placeholder="留空自动统计"></td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger del-class">×</button></td>
+  `;
+  tbody.appendChild(tr);
+});
+
+document.getElementById('classBody').addEventListener('click', function(e) {
+  if (e.target.classList.contains('del-class')) {
+    if (this.rows.length > 1) {
+      e.target.closest('tr').remove();
+    }
+  }
+});
+
+// 恢复默认班级
+var resetBtn = document.getElementById('resetClasses');
+if (resetBtn) {
+  resetBtn.addEventListener('click', function() {
+    var pattern = '{{ preset.class_pattern if preset else "" }}';
+    var n = {{ preset.n_active_subjects if preset else 0 }};
+    if (!pattern || !n) return;
+    var tbody = document.getElementById('classBody');
+    tbody.innerHTML = '';
+    for (var i = 1; i <= n; i++) {
+      var tr = document.createElement('tr');
+      var clsName = pattern.replace('{n}', i);
+      tr.innerHTML = '<td><input type="text" name="cls_name[]" class="form-control form-control-sm" value="' + clsName + '"></td>'
+        + '<td><input type="number" name="cls_n_actual[]" class="form-control form-control-sm" placeholder="留空自动统计"></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger del-class">×</button></td>';
+      tbody.appendChild(tr);
+    }
+  });
+}
+</script>
+{% endblock %}

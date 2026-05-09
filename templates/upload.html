@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}上传成绩{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+
+    <div class="text-center mb-4">
+      <h2 class="fw-bold" style="color: var(--primary-dark);">成绩核算系统</h2>
+      <p class="text-muted">上传登分表 Excel，自动生成标准报表</p>
+    </div>
+
+    <!-- 年级选择器 -->
+    <div class="grade-selector mb-4 text-center">
+      <div class="d-inline-flex gap-2 flex-wrap justify-content-center">
+        {% for grade, ready in config_status.items() %}
+        <button type="button" class="grade-pill {{ 'active' if loop.first else '' }}"
+                data-grade="{{ grade }}" onclick="selectGrade(this)">
+          <i class="bi bi-check-circle-fill grade-check"></i>
+          {{ grade }}
+        </button>
+        {% endfor %}
+        <a href="{{ url_for('config_page') }}" class="grade-pill grade-pill-manage" title="管理配置">
+          <i class="bi bi-gear"></i>
+        </a>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- 左侧：进度列表 -->
+      <div class="col-md-3">
+        <div class="progress-sidebar">
+          <h6 class="progress-title"><i class="bi bi-list-check me-1"></i>操作进度</h6>
+          <ul class="progress-list" id="progressList">
+            <li class="progress-step" id="step-upload">
+              <i class="bi bi-circle"></i>
+              <span>上传文件</span>
+            </li>
+            <li class="progress-step" id="step-confirm">
+              <i class="bi bi-circle"></i>
+              <span>确认配置</span>
+            </li>
+            <li class="progress-step" id="step-calc">
+              <i class="bi bi-circle"></i>
+              <span>计算完成</span>
+            </li>
+            <li class="progress-step" id="step-download">
+              <i class="bi bi-circle"></i>
+              <span>下载报表</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 右侧：上传区域 -->
+      <div class="col-md-9">
+        <!-- 上传区域 -->
+        <div class="card">
+          <div class="card-body p-4">
+
+            <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+              <input type="hidden" name="selected_grade" id="selectedGrade" value="{{ config_status.keys()|list|first }}">
+              <div class="upload-zone text-center p-5 mb-3" id="dropZone">
+                <div class="upload-icon">
+                  <i class="bi bi-cloud-arrow-up"></i>
+                </div>
+                <p class="mb-2 fw-medium">拖拽 Excel 文件到此处，或点击选择</p>
+                <input type="file" name="score_file" id="fileInput" accept=".xlsx,.xls" class="d-none">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3" onclick="document.getElementById('fileInput').click()">
+                  <i class="bi bi-folder2-open me-1"></i>选择文件
+                </button>
+                <p class="text-muted small mt-3 mb-0" id="fileName">支持 .xlsx / .xls 格式</p>
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg" id="btnUpload" disabled>
+                  <i class="bi bi-play-circle me-1"></i>开始计算
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+
+        <div class="text-center mt-3">
+          <small class="text-muted">
+            <i class="bi bi-lightbulb me-1"></i>首次使用需确认配置并保存，之后上传即出结果
+          </small>
+        </div>
+
+        <!-- 模板下载 -->
+        <div class="card mt-3">
+          <div class="card-body py-3">
+            <h6 class="mb-2 fw-semibold" style="color: var(--primary-dark);"><i class="bi bi-file-earmark-spreadsheet me-1"></i>下载空白登分表模板</h6>
+            <p class="text-muted small mb-2">模板已包含正确列头，填入成绩后直接上传即可。</p>
+            <div class="d-flex gap-2 flex-wrap">
+              {% for grade_name in config_status.keys() %}
+              <a href="{{ url_for('template_download', grade_name=grade_name) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-download me-1"></i>{{ grade_name }}
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- 重置按钮 -->
+        <div class="text-center mt-3">
+          <form action="{{ url_for('reset') }}" method="post" onsubmit="return confirm('确定重置？将清除本次计算结果，教师和班级配置不受影响。')">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>重置核算
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const btnUpload = document.getElementById('btnUpload');
+const fileName = document.getElementById('fileName');
+const selectedGradeInput = document.getElementById('selectedGrade');
+
+function selectGrade(btn) {
+  document.querySelectorAll('.grade-pill:not(.grade-pill-manage)').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  selectedGradeInput.value = btn.dataset.grade;
+}
+
+// 检查是否有上次的结果，标记进度
+{% if has_result %}
+document.getElementById('step-upload').classList.add('done');
+document.getElementById('step-confirm').classList.add('done');
+document.getElementById('step-calc').classList.add('done');
+{% endif %}
+
+fileInput.addEventListener('change', function() {
+  if (this.files.length > 0) {
+    fileName.innerHTML = '<i class="bi bi-file-earmark-check text-success me-1"></i><strong>' + this.files[0].name + '</strong>';
+    btnUpload.disabled = false;
+    markStep('step-upload');
+  }
+});
+
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', function(e) { e.preventDefault(); this.classList.remove('dragover'); });
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault(); this.classList.remove('dragover');
+  if (e.dataTransfer.files.length > 0) {
+    fileInput.files = e.dataTransfer.files;
+    fileName.innerHTML = '<i class="bi bi-file-earmark-check text-success me-1"></i><strong>' + e.dataTransfer.files[0].name + '</strong>';
+    btnUpload.disabled = false;
+    markStep('step-upload');
+  }
+});
+
+dropZone.addEventListener('click', function(e) {
+  if (e.target === this || e.target.tagName === 'P' || e.target.tagName === 'DIV' || e.target.tagName == 'I') { fileInput.click(); }
+});
+
+function markStep(id) {
+  var el = document.getElementById(id);
+  if (el && !el.classList.contains('done')) {
+    el.classList.add('done');
+    el.querySelector('i').className = 'bi bi-check-circle-fill';
+  }
+}
+</script>
+{% endblock %}

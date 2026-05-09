@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+{% block title %}计算结果{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-3 d-none d-lg-block">
+    <div class="progress-sidebar">
+      <h6 class="progress-title"><i class="bi bi-list-check me-1"></i>操作进度</h6>
+      <ul class="progress-list" id="progressList">
+        <li class="progress-step done" id="step-upload">
+          <i class="bi bi-check-circle-fill"></i>
+          <span>上传文件</span>
+        </li>
+        <li class="progress-step done" id="step-confirm">
+          <i class="bi bi-check-circle-fill"></i>
+          <span>确认配置</span>
+        </li>
+        <li class="progress-step done" id="step-calc">
+          <i class="bi bi-check-circle-fill"></i>
+          <span>计算完成</span>
+        </li>
+        <li class="progress-step active" id="step-download">
+          <i class="bi bi-circle"></i>
+          <span>下载报表</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-lg-9">
+
+    <!-- 结果头部 -->
+    <div class="result-header d-flex flex-wrap justify-content-between align-items-center">
+      <div>
+        <h3>{{ exam_info.title }}</h3>
+        <p class="meta mb-0">
+          <i class="bi bi-building me-1"></i>{{ exam_info.grade }}
+          {% if exam_info.semester %}<span class="mx-2">|</span>{{ exam_info.semester }}{% endif %}
+          {% if exam_info.date %}<span class="mx-2">|</span>{{ exam_info.date }}{% endif %}
+        </p>
+      </div>
+      <div class="d-flex gap-2 mt-2 mt-md-0 align-items-center">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>返回
+        </a>
+        <!-- 下载下拉 -->
+        <div class="btn-group download-dropdown">
+          <a href="{{ url_for('download') }}" class="btn btn-success shadow-sm" id="btnDownloadAll">
+            <i class="bi bi-download me-1"></i>下载全部报表
+          </a>
+          <button type="button" class="btn btn-success dropdown-toggle dropdown-toggle-split shadow-sm"
+                  data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="visually-hidden">选择班级</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('download') }}"><i class="bi bi-folder2-open me-2"></i>下载全部报表</a></li>
+            <li><hr class="dropdown-divider"></li>
+            {% for cn in class_names_list %}
+            <li><a class="dropdown-item" href="{{ url_for('download_class', class_name=cn) }}"><i class="bi bi-file-earmark-spreadsheet me-2"></i>{{ cn }}</a></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计摘要卡片 -->
+    <div class="stat-cards-row">
+      <div class="stat-card">
+        <div class="stat-icon icon-teal"><i class="bi bi-people"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ total_classes }}</div>
+          <div class="stat-label">总班级</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-mint"><i class="bi bi-person"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ total_students }}</div>
+          <div class="stat-label">总人数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-gold"><i class="bi bi-trophy"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ highest_score }}</div>
+          <div class="stat-label">最高分</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-coral"><i class="bi bi-bar-chart-line"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ overall_avg }}</div>
+          <div class="stat-label">级均分</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon icon-purple"><i class="bi bi-star"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ top_class }}</div>
+          <div class="stat-label">第一名</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 导航 -->
+    <ul class="nav nav-tabs" id="resultTab" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-class">
+          <i class="bi bi-bar-chart me-1"></i>班级综合排名
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-teacher">
+          <i class="bi bi-people me-1"></i>教师成绩评比
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+
+      <!-- Tab A: 班级综合排名 -->
+      <div class="tab-pane fade show active" id="tab-class">
+
+        <!-- 紧凑摘要表 -->
+        <div class="table-responsive mt-3">
+        <table class="table table-sm table-bordered table-hover align-middle text-center class-summary-table">
+          <thead class="table-primary">
+            <tr>
+              <th>排名</th>
+              <th>班级</th>
+              <th>人均成绩</th>
+              <th>全科合格率%</th>
+              <th>全科优秀率%</th>
+              <th>结构总分</th>
+              <th width="50"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in class_list %}
+            <tr>
+              <td>
+                {% if m.structure_rank <= 3 %}
+                <span class="rank-badge rank-badge-{{ m.structure_rank }}">{{ m.structure_rank }}</span>
+                {% else %}
+                <span class="rank-badge rank-badge-n">{{ m.structure_rank }}</span>
+                {% endif %}
+              </td>
+              <td class="fw-semibold">{{ m.class_name }}</td>
+              <td>{{ "%.1f"|format(m.avg_total) }}</td>
+              <td>{{ "%.1f"|format(m.pass_rate) }}</td>
+              <td>{{ "%.1f"|format(m.excellent_rate) }}</td>
+              <td class="fw-bold text-primary">{{ "%.2f"|format(m.structure_score) }}</td>
+              <td>
+                <a href="{{ url_for('download_class', class_name=m.class_name) }}"
+                   class="btn btn-sm btn-outline-secondary" title="下载{{ m.class_name }}报表">
+                  <i class="bi bi-download"></i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+
+        <!-- 班级详情卡片 -->
+        {% for m in class_list %}
+        <div class="class-detail-card" id="detail-{{ loop.index }}">
+          <div class="class-detail-header" onclick="toggleDetail({{ loop.index }})">
+            <div class="cls-info">
+              {% if m.structure_rank <= 3 %}
+              <span class="rank-badge rank-badge-{{ m.structure_rank }}">{{ m.structure_rank }}</span>
+              {% else %}
+              <span class="rank-badge rank-badge-n">{{ m.structure_rank }}</span>
+              {% endif %}
+              <span class="cls-name">{{ m.class_name }}</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+              <span class="cls-score">{{ "%.2f"|format(m.structure_score) }} 分</span>
+              <i class="bi bi-chevron-down toggle-icon"></i>
+            </div>
+          </div>
+          <div class="class-detail-body">
+            <!-- 基础指标 -->
+            <div class="metric-group">
+              <div class="metric-group-title">基础指标</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">应考</span><span class="metric-value">{{ m.n_actual }}</span></div>
+                <div class="metric-item"><span class="metric-label">实考</span><span class="metric-value">{{ m.n_attended }}</span></div>
+                <div class="metric-item"><span class="metric-label">人均总分</span><span class="metric-value">{{ "%.1f"|format(m.avg_total) }}</span></div>
+                <div class="metric-item"><span class="metric-label">人均得分</span><span class="metric-value">{{ "%.2f"|format(m.E) }}</span></div>
+              </div>
+            </div>
+            <!-- 全科合格 -->
+            <div class="metric-group">
+              <div class="metric-group-title">全科合格率（20%）</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">合格人数</span><span class="metric-value">{{ m.n_all_pass }}</span></div>
+                <div class="metric-item"><span class="metric-label">合格率</span><span class="metric-value">{{ "%.1f"|format(m.pass_rate) }}%</span></div>
+                <div class="metric-item"><span class="metric-label">得分</span><span class="metric-value">{{ "%.2f"|format(m.H) }}</span></div>
+              </div>
+            </div>
+            <!-- 全科优秀 -->
+            <div class="metric-group">
+              <div class="metric-group-title">全科优秀率（20%）</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">优秀人数</span><span class="metric-value">{{ m.n_all_excellent }}</span></div>
+                <div class="metric-item"><span class="metric-label">优秀率</span><span class="metric-value">{{ "%.1f"|format(m.excellent_rate) }}%</span></div>
+                <div class="metric-item"><span class="metric-label">得分</span><span class="metric-value">{{ "%.2f"|format(m.K) }}</span></div>
+              </div>
+            </div>
+            <!-- 二率一分 -->
+            <div class="metric-group">
+              <div class="metric-group-title">二率一分</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">小计</span><span class="metric-value">{{ "%.2f"|format(m.two_rate_score) }}</span></div>
+                <div class="metric-item"><span class="metric-label">排名</span><span class="metric-value">第{{ m.two_rate_rank }}名</span></div>
+              </div>
+            </div>
+            <!-- 进线率 -->
+            <div class="metric-group">
+              <div class="metric-group-title">进线率（15%）</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">进线人数</span><span class="metric-value">{{ m.n_advance }}</span></div>
+                <div class="metric-item"><span class="metric-label">进线率</span><span class="metric-value">{{ "%.1f"|format(m.advance_rate) }}%</span></div>
+                <div class="metric-item"><span class="metric-label">得分</span><span class="metric-value">{{ "%.2f"|format(m.S) }}</span></div>
+              </div>
+            </div>
+            <!-- 参考率 -->
+            <div class="metric-group">
+              <div class="metric-group-title">参考率（5%）</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">参考率</span><span class="metric-value">{{ "%.1f"|format(m.attend_rate) }}%</span></div>
+                <div class="metric-item"><span class="metric-label">得分</span><span class="metric-value">{{ "%.2f"|format(m.V) }}</span></div>
+              </div>
+            </div>
+            <!-- 前N名 -->
+            <div class="metric-group">
+              <div class="metric-group-title">前N名</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">人数</span><span class="metric-value">{{ m.n_top10 }}</span></div>
+                <div class="metric-item"><span class="metric-label">得分</span><span class="metric-value">{{ "%.2f"|format(m.X) }}</span></div>
+              </div>
+            </div>
+            <!-- 增值评价 -->
+            <div class="metric-group">
+              <div class="metric-group-title">增值评价</div>
+              <div class="metric-items">
+                <div class="metric-item"><span class="metric-label">基础分</span><span class="metric-value">{{ "%.2f"|format(m.Y) }}</span></div>
+                <div class="metric-item"><span class="metric-label">进步分</span><span class="metric-value">{{ "%.2f"|format(m.Z) }}</span></div>
+                <div class="metric-item"><span class="metric-label">合计</span><span class="metric-value">{{ "%.2f"|format(m.AA) }}</span></div>
+              </div>
+            </div>
+            <!-- 结构总分 -->
+            <div class="metric-group">
+              <div class="metric-group-title">结构总分</div>
+              <div class="metric-items">
+                <div class="metric-item">
+                  <span class="metric-label">最终得分</span>
+                  <span class="metric-value" style="color: var(--primary); font-size: 1rem;">{{ "%.2f"|format(m.structure_score) }}</span>
+                </div>
+                <div class="metric-item">
+                  <span class="metric-label">排名</span>
+                  <span class="metric-value">第{{ m.structure_rank }}名</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <p class="text-muted small mt-3 mb-0">
+          <i class="bi bi-info-circle me-1"></i>进线阈值：全级排名前 {{ advance_threshold }} 名
+        </p>
+      </div>
+
+      <!-- Tab B: 教师成绩评比 -->
+      <div class="tab-pane fade" id="tab-teacher">
+        {% for subject, rows in teacher_by_subject.items() %}
+        <div class="subject-title">{{ subject }}</div>
+        <div class="table-responsive mb-3">
+        <table class="table table-sm table-bordered table-hover align-middle text-center">
+          <thead class="table-info">
+            <tr>
+              <th>排名</th>
+              <th>教师</th>
+              <th>带课班级</th>
+              <th>人数</th>
+              <th>总分</th>
+              <th>平均分</th>
+              <th>均差</th>
+              <th>平均分得分</th>
+              <th>及格人数</th>
+              <th>及格率%</th>
+              <th>及格率得分</th>
+              <th>优秀人数</th>
+              <th>优秀率%</th>
+              <th>优秀率得分</th>
+              <th>考核总分</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr class="{% if r.teacher == '全级' %}table-secondary fw-semibold{% elif r.rank == 1 %}teacher-row-rank1{% endif %}">
+              <td>{{ r.rank if r.rank is not none else '—' }}</td>
+              <td class="fw-semibold text-start">{{ r.teacher }}</td>
+              <td class="text-start">{{ r.classes|join(', ') }}</td>
+              <td>{{ r.n_students }}</td>
+              <td>{{ "%.0f"|format(r.total_score) }}</td>
+              <td>{{ "%.2f"|format(r.avg) }}</td>
+              <td>
+                {% if r.teacher != '全级' %}
+                  {% set diff = r.avg_diff %}
+                  <span class="{{ 'text-success' if diff >= 0 else 'text-danger' }}">
+                    {{ '%+.2f'|format(diff) }}
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+              <td>{{ "%.2f"|format(r.M) }}</td>
+              <td>{{ r.n_pass }}</td>
+              <td>{{ "%.1f"|format(r.pass_rate) }}</td>
+              <td>{{ "%.2f"|format(r.Q) }}</td>
+              <td>{{ r.n_excellent }}</td>
+              <td>{{ "%.1f"|format(r.excellent_rate) }}</td>
+              <td>{{ "%.2f"|format(r.U) }}</td>
+              <td class="fw-bold text-primary">{{ "%.2f"|format(r.eval_score) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-person-x fs-1 d-block mb-2"></i>
+          <p>未配置教师任课信息，教师评比不可用。</p>
+          <a href="{{ url_for('config_page') }}" class="btn btn-outline-primary btn-sm">前往配置</a>
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 班级详情卡片展开/收起
+function toggleDetail(idx) {
+  var card = document.getElementById('detail-' + idx);
+  if (card) card.classList.toggle('expanded');
+}
+
+// 下载按钮进度标记
+document.getElementById('btnDownloadAll').addEventListener('click', function() {
+  markStepDone();
+});
+document.querySelectorAll('.download-dropdown .dropdown-item').forEach(function(item) {
+  item.addEventListener('click', function() { markStepDone(); });
+});
+document.querySelectorAll('#tab-class .btn-outline-secondary').forEach(function(btn) {
+  btn.addEventListener('click', function() { markStepDone(); });
+});
+
+function markStepDone() {
+  var el = document.getElementById('step-download');
+  if (el && !el.classList.contains('done')) {
+    el.classList.remove('active');
+    el.classList.add('done');
+    el.querySelector('i').className = 'bi bi-check-circle-fill';
+  }
+}
+</script>
+{% endblock %}

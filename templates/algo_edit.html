@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}算法参数配置{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="mb-0"><i class="bi bi-sliders me-2"></i>算法参数配置</h4>
+      <form action="{{ url_for('algo_reset') }}" method="post" class="d-inline">
+        <button type="submit" class="btn btn-outline-warning btn-sm"
+                onclick="return confirm('确定恢复所有参数为默认值？')">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>恢复默认值
+        </button>
+      </form>
+    </div>
+
+    <div class="alert alert-info py-2 small">
+      <i class="bi bi-info-circle me-1"></i>
+      修改这些参数会影响所有年级的计算结果。如无特殊需要，保持默认值即可。括号中显示的是默认值。
+    </div>
+
+    <!-- 算法说明 -->
+    <div class="card mb-3">
+      <div class="card-header py-2" data-bs-toggle="collapse" data-bs-target="#algoDoc" role="button">
+        <strong><i class="bi bi-book me-1"></i>算法说明（点击展开）</strong>
+      </div>
+      <div class="collapse" id="algoDoc">
+        <div class="card-body py-3 small">
+          <h6 class="fw-bold">一、及格与优秀判定</h6>
+          <ul>
+            <li><strong>单科及格</strong>：该科成绩 ≥ 满分 × 及格比例（默认60%）</li>
+            <li><strong>单科优秀</strong>：该科成绩 ≥ 满分 × 优秀比例（默认80%）</li>
+            <li><strong>全科合格</strong>：所有参评科目同时达到各自及格线</li>
+            <li><strong>全科优秀</strong>：所有参评科目同时达到各自优秀线</li>
+            <li>每科的及格线/优秀线可在确认页单独设置，此处设置的是未单独指定时的默认比例</li>
+          </ul>
+
+          <h6 class="fw-bold mt-3">二、班级结构总分</h6>
+          <p class="mb-1">结构总分 = E + H + K + S + V + X + AA，各项含义：</p>
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr><th>代号</th><th>名称</th><th>计算公式</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>E</td><td>人均得分</td><td>班级人均单科分 × 人均系数</td></tr>
+              <tr><td>H</td><td>合格率得分</td><td>全科合格率% × 合格率系数</td></tr>
+              <tr><td>K</td><td>优秀率得分</td><td>全科优秀率% × 优秀率系数</td></tr>
+              <tr><td>S</td><td>进线率得分</td><td>进线率% × 进线率系数</td></tr>
+              <tr><td>V</td><td>参考率得分</td><td>参考率% × 参考率系数</td></tr>
+              <tr><td>X</td><td>前N名得分</td><td>进入全级前N名人数 × 每人得分</td></tr>
+              <tr><td>AA</td><td>增值评价</td><td>基础分 + 进步分（见下方）</td></tr>
+            </tbody>
+          </table>
+
+          <h6 class="fw-bold mt-3">三、增值评价</h6>
+          <ul>
+            <li><strong>基础分</strong> = 起始值 − 递减步长 × 本次二率一分排名</li>
+            <li><strong>进步分</strong> = (上次排名 − 本次排名) × 进步系数</li>
+            <li><strong>增值合计</strong> = 基础分 + 进步分</li>
+          </ul>
+
+          <h6 class="fw-bold mt-3">四、教师考核总分</h6>
+          <p class="mb-1">教师考核分 = M + Q + U</p>
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr><th>代号</th><th>名称</th><th>计算公式</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>M</td><td>平均分得分</td><td>(平均分 ÷ 满分) × 平均分系数 × 100</td></tr>
+              <tr><td>Q</td><td>及格率得分</td><td>及格率% × 及格率系数</td></tr>
+              <tr><td>U</td><td>优秀率得分</td><td>优秀率% × 优秀率系数</td></tr>
+            </tbody>
+          </table>
+
+          <h6 class="fw-bold mt-3">五、进线阈值</h6>
+          <p>进线人数 = 全年级总人数 × 进线比例（默认75%），即全级排名在此名次之内的学生算"进线"。可在确认页手动覆盖。</p>
+        </div>
+      </div>
+    </div>
+
+    <form action="{{ url_for('algo_save') }}" method="post">
+
+      <!-- 及格/优秀标准 -->
+      <div class="card mb-3">
+        <div class="card-header py-2"><strong>及格与优秀标准</strong></div>
+        <div class="card-body py-3">
+          <p class="text-muted small mb-3">
+            当科目未单独设置分数线时，系统按以下比例自动计算：及格线 = 满分 × 及格比例，优秀线 = 满分 × 优秀比例。
+          </p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small">及格比例（默认 {{ defaults.score_lines.pass_ratio }}）</label>
+              <div class="input-group input-group-sm">
+                <input type="number" step="0.01" min="0" max="1" name="sl_pass_ratio" class="form-control"
+                       value="{{ params.score_lines.pass_ratio }}">
+                <span class="input-group-text">即满分的 {{ "%.0f"|format(params.score_lines.pass_ratio * 100) }}%</span>
+              </div>
+              <small class="text-muted">例：满分120，及格线 = 120 × 0.6 = 72分</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">优秀比例（默认 {{ defaults.score_lines.excellent_ratio }}）</label>
+              <div class="input-group input-group-sm">
+                <input type="number" step="0.01" min="0" max="1" name="sl_excellent_ratio" class="form-control"
+                       value="{{ params.score_lines.excellent_ratio }}">
+                <span class="input-group-text">即满分的 {{ "%.0f"|format(params.score_lines.excellent_ratio * 100) }}%</span>
+              </div>
+              <small class="text-muted">例：满分120，优秀线 = 120 × 0.8 = 96分</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 班级结构分权重 -->
+      <div class="card mb-3">
+        <div class="card-header py-2"><strong>班级结构分权重</strong></div>
+        <div class="card-body py-3">
+          <p class="text-muted small mb-3">
+            结构总分 = 人均得分(E) + 合格率得分(H) + 优秀率得分(K) + 进线率得分(S) + 参考率得分(V) + 前N名得分(X) + 增值评价(AA)
+          </p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small">人均成绩系数（默认 {{ defaults.weights.avg_score }}）</label>
+              <input type="number" step="0.01" name="w_avg_score" class="form-control form-control-sm"
+                     value="{{ params.weights.avg_score }}">
+              <small class="text-muted">人均单科分 × 此系数 = 人均得分(E)</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">全科合格率系数（默认 {{ defaults.weights.pass_rate }}）</label>
+              <input type="number" step="0.01" name="w_pass_rate" class="form-control form-control-sm"
+                     value="{{ params.weights.pass_rate }}">
+              <small class="text-muted">合格率% × 此系数 = 合格率得分(H)</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">全科优秀率系数（默认 {{ defaults.weights.excellent_rate }}）</label>
+              <input type="number" step="0.01" name="w_excellent_rate" class="form-control form-control-sm"
+                     value="{{ params.weights.excellent_rate }}">
+              <small class="text-muted">优秀率% × 此系数 = 优秀率得分(K)</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">进线率系数（默认 {{ defaults.weights.advance_rate }}）</label>
+              <input type="number" step="0.01" name="w_advance_rate" class="form-control form-control-sm"
+                     value="{{ params.weights.advance_rate }}">
+              <small class="text-muted">进线率% × 此系数 = 进线率得分(S)</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">参考率系数（默认 {{ defaults.weights.attend_rate }}）</label>
+              <input type="number" step="0.01" name="w_attend_rate" class="form-control form-control-sm"
+                     value="{{ params.weights.attend_rate }}">
+              <small class="text-muted">参考率% × 此系数 = 参考率得分(V)</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">前N名每人得分（默认 {{ defaults.weights.top_n_each }}）</label>
+              <input type="number" step="0.01" name="w_top_n_each" class="form-control form-control-sm"
+                     value="{{ params.weights.top_n_each }}">
+              <small class="text-muted">进入前N名的每人贡献此分数(X)</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 进线与前N名 -->
+      <div class="card mb-3">
+        <div class="card-header py-2"><strong>进线与前N名</strong></div>
+        <div class="card-body py-3">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small">进线比例（默认 {{ defaults.advance_ratio }}）</label>
+              <input type="number" step="0.01" name="advance_ratio" class="form-control form-control-sm"
+                     value="{{ params.advance_ratio }}">
+              <small class="text-muted">全年级总人数 × 此比例 = 进线阈值（可在确认页覆盖）</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">前N名的 N（默认 {{ defaults.top_n }}）</label>
+              <input type="number" step="1" name="top_n" class="form-control form-control-sm"
+                     value="{{ params.top_n }}">
+              <small class="text-muted">统计各班进入全级前N名的学生人数</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 增值评价 -->
+      <div class="card mb-3">
+        <div class="card-header py-2"><strong>增值评价参数</strong></div>
+        <div class="card-body py-3">
+          <p class="text-muted small mb-3">
+            基础分 = 起始值 − 递减步长 × 二率一分排名<br>
+            进步分 = (上次排名 − 本次排名) × 进步系数<br>
+            增值合计 = 基础分 + 进步分
+          </p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small">基础分起始值（默认 {{ defaults.value_added.base_start }}）</label>
+              <input type="number" step="0.1" name="va_base_start" class="form-control form-control-sm"
+                     value="{{ params.value_added.base_start }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">基础分递减步长（默认 {{ defaults.value_added.base_step }}）</label>
+              <input type="number" step="0.01" name="va_base_step" class="form-control form-control-sm"
+                     value="{{ params.value_added.base_step }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">进步分系数（默认 {{ defaults.value_added.progress_step }}）</label>
+              <input type="number" step="0.01" name="va_progress_step" class="form-control form-control-sm"
+                     value="{{ params.value_added.progress_step }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 教师评比权重 -->
+      <div class="card mb-3">
+        <div class="card-header py-2"><strong>教师评比权重</strong></div>
+        <div class="card-body py-3">
+          <p class="text-muted small mb-3">
+            教师考核总分 = 平均分得分(M) + 及格率得分(Q) + 优秀率得分(U)<br>
+            M = (平均分 ÷ 满分) × 平均分系数 × 100<br>
+            Q = 及格率% × 及格率系数<br>
+            U = 优秀率% × 优秀率系数
+          </p>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small">平均分系数（默认 {{ defaults.teacher_weights.avg_score }}）</label>
+              <input type="number" step="0.01" name="tw_avg_score" class="form-control form-control-sm"
+                     value="{{ params.teacher_weights.avg_score }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">及格率系数（默认 {{ defaults.teacher_weights.pass_rate }}）</label>
+              <input type="number" step="0.01" name="tw_pass_rate" class="form-control form-control-sm"
+                     value="{{ params.teacher_weights.pass_rate }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small">优秀率系数（默认 {{ defaults.teacher_weights.excellent_rate }}）</label>
+              <input type="number" step="0.01" name="tw_excellent_rate" class="form-control form-control-sm"
+                     value="{{ params.teacher_weights.excellent_rate }}">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 提交 -->
+      <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary px-4">返回首页</a>
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-check-lg me-1"></i>保存参数
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

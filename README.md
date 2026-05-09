@@ -4,11 +4,15 @@
 
 ## 快速开始
 
-### 方式一：直接运行（推荐）
+### 方式一：安装程序（推荐）
+
+双击 `成绩核算系统_v2.0_安装包.exe`，按向导安装。自动创建桌面快捷方式。
+
+### 方式二：直接运行
 
 双击 `成绩核算系统.exe`，浏览器自动打开。无需安装 Python。
 
-### 方式二：源码运行
+### 方式三：源码运行
 
 ```bash
 pip install -r requirements.txt
@@ -75,8 +79,9 @@ chengji_system/
 ├── presets.py          # 年级预设 + 科目默认值
 ├── config_manager.py   # 配置读写
 ├── algo_config.py      # 算法参数管理
-├── activation.py       # 激活码验证模块
+├── activation.py       # 激活码验证模块（含试用管理）
 ├── admin_genkey.py     # 激活码生成工具（管理员专用）
+├── installer.iss       # Inno Setup 安装程序脚本
 ├── config/             # 持久化配置（自动生成）
 ├── templates/          # HTML 模板
 ├── static/main.css     # 样式
@@ -91,7 +96,8 @@ chengji_system/
 系统采用「机器绑定 + 激活码」保护机制：
 - 每台电脑有唯一的**机器码**（基于硬件信息生成）
 - 管理员根据机器码生成对应的**激活码**
-- 用户输入激活码后即可正常使用，激活一次永久有效
+- 支持两种激活码：**永久激活码**（V1 开头）和**试用激活码**（T1 开头，3天有效期）
+- 首次运行自动进入 3 天试用期，无需激活码
 
 ### 管理员工具
 
@@ -104,10 +110,31 @@ python -m PyInstaller admin_genkey.spec --noconfirm
 生成激活码：
 
 ```bash
+# 生成永久激活码
 激活码生成工具.exe <学校代码> <机器码>
+
+# 生成试用激活码（3天）
+激活码生成工具.exe --trial <学校代码> <机器码>
 ```
 
 详细说明见 `激活码使用说明.md`。
+
+## 安装程序
+
+使用 Inno Setup 制作安装程序：
+
+```bash
+# 需要先安装 Inno Setup 6
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+```
+
+输出：`installer_output\成绩核算系统_v2.0_安装包.exe`（29MB）
+
+安装程序功能：
+- 中文界面安装向导
+- 自动检测旧版本并提示卸载
+- 创建桌面快捷方式和开始菜单
+- 支持完整卸载
 
 ## 注意事项
 

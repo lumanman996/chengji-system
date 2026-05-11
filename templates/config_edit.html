@@ -225,6 +225,12 @@
                 <div class="mb-3">
                   <input type="file" name="teacher_file" class="form-control" accept=".xlsx,.xls" required>
                 </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" name="auto_split_grade" id="autoSplitGrade" checked>
+                  <label class="form-check-label small" for="autoSplitGrade">
+                    自动按班级识别年级并归类（跨年级教师自动拆分）
+                  </label>
+                </div>
                 <a href="{{ url_for('teacher_template') }}" class="small text-decoration-none">
                   <i class="bi bi-download me-1"></i>没有模板？点此下载
                 </a>

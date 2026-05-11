@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-成绩核算 Web 应用。上传登分表 Excel → 自动计算班级排名、教师评比 → 导出四张标准报表。
+成绩核算系统 v2.0.2。上传登分表 Excel → 自动计算班级排名、教师评比 → 导出四张标准报表。
 
 **GitHub：** https://github.com/lumanman996/chengji-system
 **依赖：** Flask 3.1.3、Pandas 3.0.2、openpyxl 3.1.5
+**数据结构：** 详见上级目录 `成绩核算数据结构分析.md`
 
 ## 常用命令
 

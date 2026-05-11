@@ -40,6 +40,23 @@ def save_teachers(grade, assignments):
     _save_json(TEACHERS_FILE, data)
 
 
+def merge_teachers(grade, new_assignments):
+    """合并教师任课：保留已有记录，新增不重复的条目。"""
+    data = _load_json(TEACHERS_FILE)
+    existing = data.get(grade, [])
+    existing_keys = {(t["teacher"], t["subject"], tuple(sorted(t["classes"]))) for t in existing}
+    added = 0
+    for ta in new_assignments:
+        key = (ta["teacher"], ta["subject"], tuple(sorted(ta["classes"])))
+        if key not in existing_keys:
+            existing.append(ta)
+            existing_keys.add(key)
+            added += 1
+    data[grade] = existing
+    _save_json(TEACHERS_FILE, data)
+    return added
+
+
 # ─── 应考人数 ─────────────────────────────────────────────────────────────────
 
 def load_class_counts(grade):

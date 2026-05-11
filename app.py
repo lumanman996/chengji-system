@@ -1,5 +1,5 @@
 """
-Flask 主应用 v2：精简 3 步流程 + 一键模式 + 配置管理。
+Flask 主应用 v2.0.2：精简 3 步流程 + 一键模式 + 配置管理。
 """
 
 import json
@@ -686,6 +686,50 @@ def teacher_template():
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+def _detect_grade_from_classes(classes):
+    """从班级列表中检测年级，返回 {年级名: [班级列表]} 和无法识别的班级列表。"""
+    from presets import get_all_grades
+    all_grades = get_all_grades()
+    grade_keywords = {}
+    for g in all_grades:
+        if len(g) >= 1:
+            grade_keywords[g[0]] = g  # "七" -> "七年级"
+    groups = {}
+    unmatched = []
+    for cls in classes:
+        matched = False
+        for kw, grade_name in grade_keywords.items():
+            if kw in cls:
+                groups.setdefault(grade_name, []).append(cls)
+                matched = True
+                break
+        if not matched:
+            unmatched.append(cls)
+    return groups, unmatched
+
+
+def _split_teachers_by_grade(teacher_assignments, fallback_grade):
+    """将教师列表按班级名自动拆分到各年级，返回 (分组结果, 警告列表)。"""
+    result = {}
+    warnings = []
+    for ta in teacher_assignments:
+        groups, unmatched = _detect_grade_from_classes(ta["classes"])
+        for grade_name, cls_list in groups.items():
+            result.setdefault(grade_name, []).append({
+                "teacher": ta["teacher"],
+                "subject": ta["subject"],
+                "classes": cls_list,
+            })
+        if unmatched:
+            warnings.append(f"{ta['teacher']}（{ta['subject']}）的班级「{'、'.join(unmatched)}」无法识别年级，已归入「{fallback_grade}」")
+            result.setdefault(fallback_grade, []).append({
+                "teacher": ta["teacher"],
+                "subject": ta["subject"],
+                "classes": unmatched,
+            })
+    return result, warnings
+
+
 @app.route("/teachers/import", methods=["POST"])
 def teacher_import():
     """从 Excel 导入教师任课信息。"""
@@ -729,8 +773,21 @@ def teacher_import():
             flash("未从文件中读取到有效的教师任课数据。")
             return redirect(url_for("config_page", grade=grade))
 
-        save_teachers(grade, teacher_assignments)
-        flash(f"成功导入 {len(teacher_assignments)} 条教师任课记录到「{grade}」。")
+        auto_split = request.form.get("auto_split_grade") == "on"
+        if auto_split:
+            from config_manager import merge_teachers
+            by_grade, split_warnings = _split_teachers_by_grade(teacher_assignments, grade)
+            total_added = 0
+            for g, assignments in by_grade.items():
+                added = merge_teachers(g, assignments)
+                total_added += added
+            parts = [f"{g} {len(a)} 条" for g, a in by_grade.items()]
+            flash(f"成功导入：{'、'.join(parts)}教师任课记录（新增 {total_added} 条）。")
+            for w in split_warnings:
+                flash(f"⚠ {w}", "warning")
+        else:
+            save_teachers(grade, teacher_assignments)
+            flash(f"成功导入 {len(teacher_assignments)} 条教师任课记录到「{grade}」。")
 
     except Exception as e:
         flash(f"导入失败：{e}")

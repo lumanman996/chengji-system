@@ -2,7 +2,7 @@
 ; 用 Inno Setup 编译生成安装包
 
 #define MyAppName "成绩核算系统"
-#define MyAppVersion "2.0"
+#define MyAppVersion "2.0.1"
 #define MyAppPublisher "成绩核算系统"
 #define MyAppURL "https://github.com/lumanman996/chengji-system"
 #define MyAppExeName "成绩核算系统.exe"
@@ -20,7 +20,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile=E:\教务处\2026春季学期\Chengji\chengji_system\LICENSE
 OutputDir=E:\教务处\2026春季学期\Chengji\chengji_system\installer_output
-OutputBaseFilename=成绩核算系统_v2.0_安装包
+OutputBaseFilename=成绩核算系统_v2.0.1_安装包
 SetupIconFile=E:\教务处\2026春季学期\Chengji\chengji_system\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

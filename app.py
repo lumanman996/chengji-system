@@ -824,7 +824,10 @@ if __name__ == "__main__":
     @app.before_request
     def _check_activation():
         if request.path not in ("/activate", "/static/icon.png") and not request.path.startswith("/static/"):
-            status, message = check_activation()
+            try:
+                status, message = check_activation()
+            except Exception:
+                return redirect(url_for("activate_page"))
             if status == "activated":
                 return  # 永久激活，正常访问
             elif status == "trial":

@@ -115,7 +115,7 @@ def _get_trial_start():
     reg_value = _read_registry()
     if reg_value:
         try:
-            return datetime.fromisoformat(reg_value)
+            return datetime.fromisoformat(reg_value).replace(tzinfo=None)
         except Exception:
             pass
 
@@ -125,7 +125,7 @@ def _get_trial_start():
         try:
             with open(trial_file, "r") as f:
                 data = json.load(f)
-                start = datetime.fromisoformat(data["start"])
+                start = datetime.fromisoformat(data["start"]).replace(tzinfo=None)
                 # 同步到注册表
                 _write_registry(data["start"])
                 return start

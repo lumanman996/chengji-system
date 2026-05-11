@@ -151,6 +151,18 @@ python -m PyInstaller admin_genkey.spec --noconfirm
 - 创建桌面快捷方式和开始菜单
 - 支持完整卸载
 
+## 联系方式
+
+如有问题、建议或需要激活码，欢迎通过以下方式联系：
+
+- **邮箱**：zhaihuibo@gmail.com
+- **微信**：915274394（扫码添加）
+- **GitHub Issues**：[提交 Issue](https://github.com/lumanman996/chengji-system/issues)
+
+<p align="center">
+  <img src="static/wechat-qr.png" alt="微信二维码" width="200">
+</p>
+
 ## 注意事项
 
 - `config/` 目录存放教师任课等配置，请勿删除

@@ -25,6 +25,28 @@ python -m PyInstaller chengji.spec --noconfirm
 python -m PyInstaller admin_genkey.spec --noconfirm  # 打包管理员工具
 ```
 
+## 版本发布流程
+
+每次版本更新（版本号变更）后，必须按以下步骤完成发布：
+
+1. **更新版本号**（以下文件同步修改）：
+   - `installer.iss` 第 5 行 `#define MyAppVersion`
+   - `installer.iss` 第 23 行 `OutputBaseFilename`
+   - `README.md` 标题行
+   - `CLAUDE.md` 项目概述
+   - `app.py` docstring
+2. **更新 README.md 更新日志**：在 `## 更新日志` 下新增版本条目
+3. **提交并推送源码**：`git add` 所有修改的文件 → `git commit` → `git push`
+4. **打包 exe**：`python -m PyInstaller chengji.spec --noconfirm`
+5. **生成安装包**：`"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss`
+6. **推送安装包到仓库**：`git add -f installer_output/*.exe` → `git commit` → `git push`
+7. **创建 GitHub Release**：`gh release create v<版本号> installer_output/<安装包文件名> --title "成绩核算系统 v<版本号>" --notes "更新日志内容"`
+
+如遇 `dist/` 文件占用（PermissionError），先用 PowerShell 结束进程：
+```powershell
+Get-Process | Where-Object { $_.ProcessName -like "*成绩*" } | Stop-Process -Force
+```
+
 ## 环境变量
 
 PyInstaller 打包后，系统自动设置以下环境变量供其他模块使用：

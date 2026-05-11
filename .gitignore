@@ -50,6 +50,9 @@ uploads/*
 *.dll
 *.manifest
 
+# 安装包保留到仓库
+!installer_output/*.exe
+
 # Activation files
 config/activation.json
 

@@ -180,6 +180,8 @@ def check_trial():
 # ── Self-Integrity Check ──
 
 def _self_hash():
+    if getattr(sys, 'frozen', False):
+        return None  # 打包模式下跳过完整性校验（PyInstaller .pyc 哈希每次打包不同）
     path = os.path.abspath(__file__)
     if not os.path.exists(path):
         return None

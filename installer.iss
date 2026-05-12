@@ -2,7 +2,7 @@
 ; 用 Inno Setup 编译生成安装包
 
 #define MyAppName "成绩核算系统"
-#define MyAppVersion "2.0.2"
+#define MyAppVersion "2.0.3"
 #define MyAppPublisher "成绩核算系统"
 #define MyAppURL "https://github.com/lumanman996/chengji-system"
 #define MyAppExeName "成绩核算系统.exe"
@@ -20,7 +20,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile=E:\教务处\2026春季学期\Chengji\chengji_system\LICENSE
 OutputDir=E:\教务处\2026春季学期\Chengji\chengji_system\installer_output
-OutputBaseFilename=成绩核算系统_v2.0.2_安装包
+OutputBaseFilename=成绩核算系统_v2.0.3_安装包
 SetupIconFile=E:\教务处\2026春季学期\Chengji\chengji_system\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -69,9 +69,8 @@ end;
 
 function InitializeSetup(): Boolean;
 var
-  V: Integer;
-  iResultCode: Integer;
-  sUnInstallString: String;
+  V, iResultCode: Integer;
+  sUnInstallString, backupDir, configDir: String;
 begin
   Result := True;
   if IsUpgrade() then
@@ -79,6 +78,17 @@ begin
     V := MsgBox(ExpandConstant('{#MyAppName} 已安装，是否先卸载旧版本？'), mbInformation, MB_YESNO);
     if V = IDYES then
     begin
+      // 备份 config 目录（含激活状态和配置数据）
+      configDir := ExpandConstant('{app}\config');
+      if DirExists(configDir) then
+      begin
+        backupDir := ExpandConstant('{localappdata}\ChengjiBackup');
+        CreateDir(backupDir);
+        if not DirExists(backupDir + '\config') then
+          CreateDir(backupDir + '\config');
+        Exec('xcopy', '"' + configDir + '" "' + backupDir + '\config\" /E /I /Y /Q', '', SW_HIDE, ewWaitUntilTerminated, iResultCode);
+      end;
+      // 卸载旧版本
       sUnInstallString := GetUninstallString();
       sUnInstallString := RemoveQuotes(sUnInstallString);
       Exec(sUnInstallString, '/SILENT', '', SW_SHOW, ewWaitUntilTerminated, iResultCode);
@@ -86,5 +96,26 @@ begin
     end
     else
       Result := True;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  backupDir, configDir: String;
+  iResultCode: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    // 安装完成后恢复备份的 config 目录
+    backupDir := ExpandConstant('{localappdata}\ChengjiBackup\config');
+    if DirExists(backupDir) then
+    begin
+      configDir := ExpandConstant('{app}\config');
+      if not DirExists(configDir) then
+        CreateDir(configDir);
+      Exec('xcopy', '"' + backupDir + '" "' + configDir + '\" /E /I /Y /Q', '', SW_HIDE, ewWaitUntilTerminated, iResultCode);
+      // 清理备份目录
+      DelTree(ExpandConstant('{localappdata}\ChengjiBackup'), True, True, True);
+    end;
   end;
 end;

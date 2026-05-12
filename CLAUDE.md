@@ -42,7 +42,11 @@ python -m PyInstaller admin_genkey.spec --noconfirm  # 打包管理员工具
 6. **推送安装包到仓库**：`git add -f installer_output/*.exe` → `git commit` → `git push`
 7. **创建 GitHub Release**：`gh release create v<版本号> installer_output/<安装包文件名> --title "成绩核算系统 v<版本号>" --notes "更新日志内容"`
 
-如遇 `dist/` 文件占用（PermissionError），先用 PowerShell 结束进程：
+**注意事项：**
+- 打包时不要修改 `activation.py` 中的 `_self_hash()` 逻辑，打包模式下必须返回 `None`
+- `installer.iss` 的升级逻辑（备份/恢复 config/）不可删除，否则客户升级后激活状态丢失
+- `chengji.spec` 的 `datas` 中不可添加 `config/` 目录
+- 如遇 `dist/` 文件占用（PermissionError），先用 PowerShell 结束进程：
 ```powershell
 Get-Process | Where-Object { $_.ProcessName -like "*成绩*" } | Stop-Process -Force
 ```
@@ -132,6 +136,14 @@ PyInstaller 打包后，系统自动设置以下环境变量供其他模块使�
 - 试用时间保存在注册表 `HKCU\Software\ChengjiSystem` 和 `config/trial.dat`（双重存储防篡改）
 - 密钥使用 XOR 混淆存储，运行时异或还原
 - 首次运行自动进入 3 天试用期，无需激活码
+- 打包模式下 `_self_hash()` 返回 `None`，跳过完整性校验（见下方"踩坑"）
+
+**激活系统踩坑（重要）：**
+
+1. **禁止在打包模式下对 .pyc 做完整性校验**：PyInstaller 每次打包的 `.pyc` 文件包含时间戳等元数据，哈希值每次不同。如果用 `_self_hash()` 校验，已激活用户重装后会误判为"系统文件被修改"导致激活失效。`_self_hash()` 已在 `getattr(sys, 'frozen', False)` 时返回 `None` 跳过校验。机器绑定本身已提供足够安全性。
+2. **安装器升级必须备份 config/**：用户选择"先卸载旧版本"时，Inno Setup 卸载器会删除整个安装目录（含 `config/activation.json` 和 `config/trial.dat`）。`installer.iss` 中已实现升级前自动备份 config/ 到 `{localappdata}\ChengjiBackup`，安装完成后恢复。
+3. **config/ 不可打包进 exe**：`activation.json` 和 `trial.dat` 是机器绑定的运行时数据，绝对不能包含在 PyInstaller 的 `datas` 中，否则所有用户的激活状态会相同。
+4. **不要在打包脚本中复制 activation.json**：`打包.bat` 只复制 `teachers.json`、`class_counts.json`、`algorithm.json`，不复制激活相关文件——这是正确的。
 
 **打包命令：**
 ```bash

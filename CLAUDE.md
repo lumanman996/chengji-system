@@ -144,6 +144,7 @@ PyInstaller 打包后，系统自动设置以下环境变量供其他模块使�
 2. **安装器升级必须备份 config/**：用户选择"先卸载旧版本"时，Inno Setup 卸载器会删除整个安装目录（含 `config/activation.json` 和 `config/trial.dat`）。`installer.iss` 中已实现升级前自动备份 config/ 到 `{localappdata}\ChengjiBackup`，安装完成后恢复。
 3. **config/ 不可打包进 exe**：`activation.json` 和 `trial.dat` 是机器绑定的运行时数据，绝对不能包含在 PyInstaller 的 `datas` 中，否则所有用户的激活状态会相同。
 4. **不要在打包脚本中复制 activation.json**：`打包.bat` 只复制 `teachers.json`、`class_counts.json`、`algorithm.json`，不复制激活相关文件——这是正确的。
+5. **启动时孤立备份恢复**：`activation.py` 中的 `_restore_orphaned_backup()` 在模块加载时执行，检测 `{localappdata}\ChengjiBackup\config` 是否存在未恢复的备份（安装器异常中断时的安全网）。仅打包模式下运行，不可删除。
 
 **打包命令：**
 ```bash

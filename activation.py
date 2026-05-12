@@ -25,6 +25,37 @@ _REG_KEY = r"Software\ChengjiSystem"
 _REG_VALUE = "TrialStart"
 
 
+# ── 孤立备份恢复（安装器异常中断时的安全网） ──
+
+def _restore_orphaned_backup():
+    """启动时检查是否存在未恢复的安装器备份，如有则自动恢复。"""
+    if not getattr(sys, 'frozen', False):
+        return  # 仅打包模式下检查
+    backup_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "ChengjiBackup", "config")
+    if not os.path.isdir(backup_dir):
+        return
+    backup_activation = os.path.join(backup_dir, "activation.json")
+    backup_trial = os.path.join(backup_dir, "trial.dat")
+    if not os.path.exists(backup_activation) and not os.path.exists(backup_trial):
+        return  # 备份中没有激活相关文件，无需恢复
+    # 恢复到 config 目录
+    os.makedirs(_CONFIG_DIR, exist_ok=True)
+    import shutil
+    for fname in ("activation.json", "trial.dat"):
+        src = os.path.join(backup_dir, fname)
+        if os.path.exists(src):
+            dst = os.path.join(_CONFIG_DIR, fname)
+            if not os.path.exists(dst):
+                shutil.copy2(src, dst)
+    # 清理备份目录
+    try:
+        shutil.rmtree(os.path.join(os.environ.get("LOCALAPPDATA", ""), "ChengjiBackup"), ignore_errors=True)
+    except Exception:
+        pass
+
+_restore_orphaned_backup()
+
+
 # ── Machine Fingerprint ──
 
 def _powershell_query(ps_command):
